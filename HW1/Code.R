@@ -4,6 +4,7 @@ library(sf)
 library(MASS)
 #install.packages("DAAG")
 library(DAAG)
+library(ggplot2)
 data=read.csv("RegressionData.csv")
 output=stargazer(data,type = "text")
 
@@ -45,6 +46,12 @@ cor(cor_data)
 
 
 data_sf=st_read("shapefile/RegressionData.shp")
+data_sf=st_set_crs(data_sf,2272)
+
+ggplot(data_sf,aes(fill=LNMEDHVAL))+
+  geom_sf(color = "black", linewidth = 0.2) + 
+  scale_fill_continuous(low = "lightblue", high = "darkblue") +
+  theme_void()
 
 
 r1=lm(LNMEDHVAL~PCTVACANT+LNNBELPOV100+PCTBACHMOR+PCTSINGLES,data=data)
