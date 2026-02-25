@@ -1,3 +1,17 @@
+---
+title: "Code"
+author: "Tim Wen"
+date: "2026-02-25"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load Packages and data
+
+```{r}
 library(dplyr)
 library(stargazer)
 library(sf)
@@ -5,9 +19,29 @@ library(MASS)
 library(ggplot2)
 library(patchwork)
 library(knitr)
-data=read.csv("RegressionData.csv")
-output=stargazer(data,type = "text")
 
+data=read.csv("RegressionData.csv")
+```
+
+## 1ai Use Stargazer to quickly calculate the summary statistics
+
+```{r}
+stargazer(data,
+          type = "text",
+          covariate.labels = c(
+            "Polygon ID",
+            "Area Key",
+            "Median House Value",
+            "Percentage of Bachelor's Degree or More",
+            "Median Household Income (USD)",
+            "Percentage of Vacant Housing Units",
+            "Percentage of Singel Detached Houses",
+            "No. Households Below Poverty Line"
+          ),
+          title = "Descriptive Statistics")
+```
+## 1a ii write a loop (cuz i am lazy first and then realize it actually took more time...) for creating his for variables and log variables
+```{r}
 #as the min value for PCTBACHMOR, PCTVACANT,PCTSINGLES, and NBELPOV100 is zero, we are going to use log(1+VAR) for them
 #create log variable
 data=data%>%
@@ -33,8 +67,9 @@ labels <- c(
 for (v in variable) {
   hist(data[[v]], main = NULL, xlab = labels[v])
 }
+```
 
-
+```{r}
 # same for log variable
 lnvariable=c("LNMEDHVAL","LNPCBACHMORE","LNNBELPOV100","LNPCTVACANT","LNPCTSINGLES")
 #label for the histogram
@@ -49,10 +84,10 @@ loglabels <- c(
 for (v in lnvariable) {
  hist(data[[v]], main = NULL, xlab = loglabels[v])
 }
+```
 
-
-
-
+##1b another loop (lazy again) for the plot
+```{r}
 #define loop for final variable plot
 finalvariable=c("LNNBELPOV100","PCTBACHMOR","PCTVACANT","PCTSINGLES")
 
@@ -64,22 +99,27 @@ finallabel <- c(
   PCTSINGLES  = "Percentage Detached Single Family Houses")
   
 #set the plot and dimension
-dev.off() 
 par(mfrow=c(2,2))
 #loop for plotting all variables
 for (v in finalvariable) {
   plot(data[[v]],data$LNMEDHVAL,ylab = "Log Median House Value",xlab = finallabel[v])
 }
 par(mfrow=c(1,1))
+```
 
-
+##1c another loop for correlation...
+```{r}
+library(dplyr)
 #filter data for correlation calculation
 cor_data=data%>% 
-  select("LNNBELPOV100","PCTBACHMOR","PCTVACANT","PCTSINGLES")
+  dplyr::select("LNNBELPOV100","PCTBACHMOR","PCTVACANT","PCTSINGLES")
 #calculate the correlation matrix
 cor(cor_data)
 
+```
 
+##1d draw the maps
+```{r}
 #load the shapefile
 data_sf=st_read("shapefile/RegressionData.shp")
 #assign a crs
@@ -120,13 +160,17 @@ g4=ggplot(data_sf,aes(fill=PCTSINGLES))+
 
 (g1 + g2) / (g3 + g4)
 
+```
 
-#run the regression
+##2a run the regression
+```{r}
 r1=lm(LNMEDHVAL~PCTVACANT+LNNBELPOV100+PCTBACHMOR+PCTSINGLES,data=data)
+```
 
+##2b result output
+```{r}
 #summary of the regression output
 summary(r1)
-
 #more professional: use stargezer for the output
 stargazer(r1,
           type = "text",
@@ -141,22 +185,32 @@ stargazer(r1,
           ),
           notes = "Standard errors in parentheses",
           star.cutoffs = c(0.05, 0.01, 0.001))
-
 #anova
 anova(r1)
-
+```
+##2c 
+```{r}
 #calculate fitted value, residuals and standardized residuals
 data$fittedvalue=fitted(r1)
 data$residual=residuals(r1)
 data$stdresidual=rstandard(r1)
+```
 
+##2d
+```{r}
 #plot fitted value vs standardized residuals
 plot(data$fittedvalue,data$stdresidual,xlab = "Fitted Value", ylab = "Standardized Residuals")
+```
 
+##3
+```{r}
 #calculate AIC
 stepmodel=step(r1)
 stepmodel$anova
+```
 
+##4
+```{r}
 #K-Fold cross validation
 fullmodel=CVlm(
   data=data,
@@ -167,7 +221,10 @@ partmodel=CVlm(
   data=data,
   form.lm = formula(LNMEDHVAL~PCTVACANT+MEDHHINC),
   m=5)
+```
 
+##5
+```{r}
 #final residual map
 #merge the residual with the spatial data
 data_sf_map=data%>%
@@ -179,3 +236,6 @@ ggplot(data_sf_map,aes(fill=stdresidual))+
   geom_sf(color = "black", linewidth = 0.2) + 
   scale_fill_continuous(low = "lightgreen", high = "red", name="Standardized Residuals") +
   theme_void()
+
+```
+
