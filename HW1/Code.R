@@ -179,3 +179,6 @@ ggplot(data_sf_map,aes(fill=stdresidual))+
   geom_sf(color = "black", linewidth = 0.2) + 
   scale_fill_continuous(low = "lightgreen", high = "red", name="Standardized Residuals") +
   theme_void()
+
+#historgam of the standard residuals
+hist(data$stdresidual,xlab = "Standardized Residuals")
