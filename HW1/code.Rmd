@@ -217,7 +217,8 @@ fullmodel=CVlm(
   data=data,
   form.lm = formula(LNMEDHVAL~PCTVACANT+LNNBELPOV100+PCTBACHMOR+PCTSINGLES),
   m=5)
-
+```
+```{r}
 partmodel=CVlm(
   data=data,
   form.lm = formula(LNMEDHVAL~PCTVACANT+MEDHHINC),
