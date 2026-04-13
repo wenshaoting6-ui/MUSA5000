@@ -6,6 +6,7 @@ library(spatialreg)
 library(whitestrap)
 library(lmtest)
 library(tseries)
+library(stats)
 
 shp=read_sf("Lecture 1 - RegressionData.shp/RegressionData.shp")
 
@@ -237,18 +238,94 @@ coefPCTSINGLES
 tmap_arrange(coefPCTBACHMOR, coefPCTVACANT, coefLNNBELPOV, coefPCTSINGLES, ncol=4)
 
 
+#aic results
+AIC(reg,lagreg,errreg)
+gwrmodel$results$AICh
 
+# Residuals
+reg_resid <- residuals(reg)
+lagreg_resid <- residuals(lagreg)
+errreg_resid <- residuals(errreg)
+gwrmodel_resid <- gwrmodel$SDF$gwr.e   # GWR local residuals
 
+# Moran's I tests
+moran_reg <- moran.test(reg_resid, queenlist, zero.policy = TRUE)
+moran_lagreg <- moran.test(lagreg_resid, queenlist, zero.policy = TRUE)
+moran_errreg <- moran.test(errreg_resid, queenlist, zero.policy = TRUE)
+moran_gwrmodel <- moran.test(gwrmodel_resid, queenlist, zero.policy = TRUE)
 
+moran_results <- data.frame(
+  Model          = c("OLS", "Spatial Lag", "Spatial Error", "GWR"),
+  Morans_I       = c(moran_reg$estimate["Moran I statistic"],
+                     moran_lagreg$estimate["Moran I statistic"],
+                     moran_errreg$estimate["Moran I statistic"],
+                     moran_gwrmodel$estimate["Moran I statistic"]),
+  Abs_Morans_I   = abs(c(moran_reg$estimate["Moran I statistic"],
+                         moran_lagreg$estimate["Moran I statistic"],
+                         moran_errreg$estimate["Moran I statistic"],
+                         moran_gwrmodel$estimate["Moran I statistic"])),
+  p_value        = c(moran_reg$p.value,
+                     moran_lagreg$p.value,
+                     moran_errreg$p.value,
+                     moran_gwrmodel$p.value)
+)
 
+print(moran_results)
 
+# OLS vs Spatial Lag Model
+reg_loglik <- as.numeric(logLik(reg))
+lagreg_loglik <- lagreg$LL
+cat(sprintf("  OLS log-likelihood:         %.4f\n", reg_loglik))
+cat(sprintf("  Spatial Lag log-likelihood: %.4f\n", lagreg_loglik))
+lr_lagreg <- lrtest(reg, lagreg)
 
-#fixed bandwidth
-gwrmodel_fixed<-gwr(formula=LNMEDHVAL ~ PCTBACHMOR + PCTVACANT + PCTSINGLES + LNNBELPOV,
-                    data=shps,
-                    bandwidth = bw_fixed, #fixed bandwidth
-                    gweight=gwr.Gauss,
-                    se.fit=TRUE, #to return local standard errors
-                    hatmatrix = TRUE)
-gwrmodel_fixed
+# OLS vs Spatial Error Model
+errreg_loglik <- errreg$LL
+cat(sprintf("  OLS log-likelihood:          %.4f\n", reg_loglik))
+cat(sprintf("  Spatial Error log-likelihood: %.4f\n", errreg_loglik))
+lr_errreg <- lrtest(reg, errreg)
 
+#GWR vs OLS: R² COMPARISON 
+reg_r2  <- summary(reg)$r.squared
+gwrmodel_r2  <- gwrmodel$results$rss    # GWR residual sum of squares
+tss     <- sum((shp$LNMEDHVAL - mean(shp$LNMEDHVAL))^2)
+gwrmodel_quasi_r2 <- 1 - (gwrmodel_r2 / tss)   # Quasi-global R²
+
+cat(sprintf("  OLS R²:               %.4f\n", reg_r2))
+cat(sprintf("  GWR Quasi-global R²:  %.4f\n", gwrmodel_quasi_r2))
+
+#GWR SPATIAL VARIABILITY IN COEFFICIENTS & LOCAL R²
+gwr_output <- as.data.frame(gwrmodel$SDF)
+local_r2 <- gwr_output$localR2
+cat("\nLocal R² summary:\n")
+print(summary(local_r2))
+# Standardised local coefficients (z-scores)
+pred_vars   <- c( "PCTBACHMOR", "PCTVACANT", "PCTSINGLES", "LNNBELPOV")
+gwr_coef_df <- gwr_output[, pred_vars, drop = FALSE]
+
+cat("\nLocal coefficient summaries (unstandardised):\n")
+for (v in pred_vars) {
+  cat(sprintf("\n  %s:\n", v))
+  print(summary(gwr_coef_df[[v]]))
+}
+
+# Coefficient of variation (CV) to assess spatial variability
+cat("\nCoefficient of Variation (CV = SD/|Mean|) of local coefficients:\n")
+cv_results <- sapply(pred_vars, function(v) {
+  coef_vals <- gwr_coef_df[[v]]
+  cv_val    <- sd(coef_vals) / abs(mean(coef_vals))
+  cat(sprintf("  %s: CV = %.4f\n", v, cv_val))
+  cv_val
+})
+
+# Interpretation
+cat("\nInterpretation:\n")
+cat("  A high CV (e.g., > 1) suggests large spatial variability in a coefficient.\n")
+cat("  High variability in local R² or coefficients indicates that a single\n")
+cat("  global regression (OLS) may not adequately capture spatial heterogeneity.\n")
+if (any(cv_results > 1)) {
+  cat("  >>> Spatial variability DETECTED in at least one coefficient.\n")
+  cat("      GWR may be preferable to OLS.\n")
+} else {
+  cat("  >>> Spatial variability appears LOW — OLS may be adequate.\n")
+}
