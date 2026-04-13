@@ -7,6 +7,10 @@ library(whitestrap)
 library(lmtest)
 library(tseries)
 library(stats)
+library(lmtest)
+library(skedastic)
+
+
 
 shp=read_sf("Lecture 1 - RegressionData.shp/RegressionData.shp")
 
@@ -115,7 +119,18 @@ moran.plot(standardised, queenlist)
 OLS<-moranMC2$res
 hist(OLS, freq=10000000, nclass=100) 
 abline(v=moran(shp$standardised, queenlist, n=length(queenlist$neighbours), S0=Szero(queenlist))$`I`, col='red')  
-
+#breusch pagan test
+olsbp_result <- bptest(reg, studentize = FALSE)
+print(olsbp_result)
+#Koenker-Bassett
+olskb_result <- bptest(reg, studentize = TRUE)
+print(olskb_result)
+#whitetest
+olswhite_result <- white_test(reg)
+print(olswhite_result)
+#Jarque-Bera Test
+jb_result <- jarque.bera.test(standardised)
+print(jb_result)
 
 
 
@@ -133,7 +148,9 @@ moran.plot(reslag, queenlist)
 Spatial_lag_regression_residuals<-lagMoranMc$res
 hist(Spatial_lag_regression_residuals, freq=10000000, nclass=100) 
 abline(v=moran(reslag, queenlist, n=length(queenlist$neighbours), S0=Szero(queenlist))$`I`, col='red')  
-
+#breusch pagan test
+lagbp_result <- bptest.Sarlm(lagreg)
+print(lagbp_result)
 
 
 
@@ -152,7 +169,9 @@ moran.plot(reserr, queenlist)
 Spatial_error_regression_residuals<-errMoranMc$res
 hist(Spatial_error_regression_residuals, freq=10000000, nclass=100) 
 abline(v=moran(reserr, queenlist, n=length(queenlist$neighbours), S0=Szero(queenlist))$`I`, col='red')  
-
+#breusch pagan test
+errbp_result <- bptest.Sarlm(errreg)
+print(errbp_result)
 
 
 
