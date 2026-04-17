@@ -12,6 +12,7 @@ library(skedastic)
 
 
 
+
 shp=read_sf("Lecture 1 - RegressionData.shp/RegressionData.shp")
 
 shp$LNNBELPOV=log(shp$NBelPov100+1)
